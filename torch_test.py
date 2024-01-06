@@ -26,7 +26,7 @@ class NumericTensorClass(Dataset):
     target: torch.Tensor
 
     @classmethod
-    def from_data(cls, features, target, batch_size):
+    def from_data(cls, features, target):
         data = cls(
             features = torch.from_numpy(features).cuda(),
             target = torch.from_numpy(target).cuda(),
@@ -50,8 +50,7 @@ def get_time_cost(func: Callable):
 # 共同外部数据
 def get_test_data(r: int, c: int) -> Tuple[np.ndarray]:
     return (np.random.random((r, c)),  # X (c features)
-            np.random.random((r, 1)),  # Y
-            np.random.randint(0, r))   #labels
+            np.random.random((r, 1)))  # Y
 
 
 @get_time_cost
@@ -59,6 +58,8 @@ def dataloader_test(data: Tuple[np.ndarray], cuda=True, load_only=True):
     train = NumericDataSet(data[0], data[1])
     train_loader = DataLoader(dataset=train, batch_size=BATCH_SIZE,shuffle=True)
     if (load_only): return
+
+    #training process (Simple Iteration)
     resid = torch.zeros(size=(BATCH_SIZE, 1))
     if (cuda): resid = resid.cuda()
     for epoch in range(10**1):
@@ -72,11 +73,12 @@ def dataloader_test(data: Tuple[np.ndarray], cuda=True, load_only=True):
 
 @get_time_cost
 def tensorclass_test(data: Tuple[np.array], cuda=True, load_only=True):
-    train = NumericTensorClass.from_data(features = data[0],
-                         target = data[1], batch_size=[BATCH_SIZE])
+    train = NumericTensorClass.from_data(features = data[0], target = data[1])
     train_loader = DataLoader(train, batch_size=BATCH_SIZE, shuffle=True,
                                 collate_fn=lambda x: x)
     if (load_only): return True
+
+    # training process
     resid = torch.zeros(size=(BATCH_SIZE, 1))
     if (cuda): resid = resid.cuda()
     for epoch in range(10**1):
@@ -91,11 +93,13 @@ def tensorclass_test(data: Tuple[np.array], cuda=True, load_only=True):
 
 
 def main():
-    # TODO  for data_size in (100, 50), (1000, 500) ...
-    size = (10000, 5000)
-    data = get_test_data(size[0], size[1])
-    result = dataloader_test(data, True, load_only=False)
-    result = tensorclass_test(data, True, load_only=False)
+    for size in [(1000, 500), (10000, 5000), (50000, 25000)]:
+        print(f"------> tensor size: {size}")
+        data = get_test_data(size[0], size[1])
+        for load in (True, False):
+            print("Loading Time:" if load else "Loading + Traing(Iteration) Time:")
+            dataloader_test(data, True, load_only=load)
+            tensorclass_test(data, True, load_only=load)
     return
 
 
