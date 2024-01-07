@@ -31,9 +31,27 @@ PyTorch DataLoader和TorchDict的IO性能评价
 
 控制变量在不同数据量的情况下进行分析。
 
-## 分析结果：
+## Test Env & Instruction
 
-本机单卡多次运行，典型测试结果如图：
+Dependable package in `requirements.txt`.
+
+可以使用以下命令初始化并使用名为`torch_test`的环境:
+
+```bash
+virutalenv torch_env
+source ./torch_env/bin/activate
+pip3 install -r requirements.txt
+```
+
+随后可以使用以下命令运行测试:
+
+```bash
+python ./torch_test.py
+```
+
+## Test Result & Analysis
+
+本机单卡测试基于Python3.8.7，多次运行典型测试结果如下图：
 
 ![pic/result.png loading failed](./pic/result.png)
 
