@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.1.0] - 2024-01-11
+
+### Added
+
+* 新增LinearRegression训练模型，用于模拟全GPU计算，减少CPU与GPU的通信瓶颈，更加接近实际情况
+
+### Changed
+
+* 去除tensorclass与DataLoader交互，改为使用Slice切片组装训练集Batch
+* 修改默认Batch大小为20
+
+
 ## [1.0.1] - 2024-01-05
 
 ### Added

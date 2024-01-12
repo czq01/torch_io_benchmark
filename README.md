@@ -55,6 +55,6 @@ python ./torch_test.py
 
 ![pic/result.png loading failed](./pic/result.png)
 
-依据结果可以看出，在数据loading并进入GPU这一过程中， tensordict的性能显著优于普通dataloader。当数据量庞大时尤为明显。而在整体性能，也即考虑training时Iteration的过程，从tensordict中取batch数据的速度在数据量大时则显著慢于普通dataloader。
+依据结果可以看出，在数据loading并进入GPU这一过程中， tensordict的性能显著优于普通dataloader。当数据量庞大时尤为明显。而在整体性能，也即考虑training时Iteration的过程，从tensorclass嵌套DataLoader取batch数据的速度在数据量大时则显著慢于普通dataloader。
 
-当然，对于traing Iteration部分，此测试结果并不绝对消极。 tensorclass可能存在本作者尚未发现的其它更高效的batch遍历方式，此处有待探究。 但是依照此代码中的方法进行处理时，tensorclass因batch遍历过程较慢而并不具有明显的优势。
+然而tensorclass存在另一种更优秀的自带的batch切片方式，即Slice切片。运用该方式在Training Iteration的过程中会得到明显的速度提升，使得其运行时间显著低于DataLoader。
