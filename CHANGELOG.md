@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.1.1] - 2024-01-12
+
+### Added
+
+* 新增tensorclass切片操作在training过程中的效率分析
+
+### Update
+
+* 新增切片操作对比测试结果
+* Readme新增tensordict pre-allocate 二维tensor测试结果
+* Readme新增loading部分时间花费瓶颈分析。
+
+### Fix Bugs
+
+* 修复未控制变量的对比实验，更改最新实验结果。
+
 ## [1.1.0] - 2024-01-11
 
 ### Added

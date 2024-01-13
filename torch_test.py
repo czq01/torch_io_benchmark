@@ -1,6 +1,6 @@
 from typing import Callable, Tuple
 from torch.utils.data import DataLoader, Dataset
-from tensordict import tensorclass
+from tensordict import TensorDict, tensorclass
 import numpy as np
 import torch
 import time
@@ -21,7 +21,6 @@ class NumericDataSet(Dataset):
     def __len__(self):
         return self.len
 
-
 @tensorclass
 class NumericTensorClass(Dataset):
     features: torch.Tensor
@@ -30,8 +29,8 @@ class NumericTensorClass(Dataset):
     @classmethod
     def from_data(cls, features, target):
         data = cls(
-            features = torch.from_numpy(features),
-            target = torch.from_numpy(target),
+            features = torch.from_numpy(features).cuda(),
+            target = torch.from_numpy(target).cuda(),
             batch_size = [len(features)],
             device = 0
         )
@@ -46,20 +45,21 @@ class LinearRegression(torch.nn.Module):
     def forward(self, x):
         return self.linear(x)
 
-    def train(self, train):
+    def train(self, train, **kwargs):
         resid = torch.zeros(size=(BATCH_SIZE, 1)).cuda()
         if isinstance(train, DataLoader):
             for x, y in train:
                 resid += y-self.forward(x)
             return resid.mean().cpu()
         elif isinstance(train, NumericTensorClass):
-            for idx in range(0, len(train), BATCH_SIZE):
-                batch = train[idx:idx+BATCH_SIZE]
-                x = batch.features
-                y = batch.target
-                resid += y-self.forward(x)
+            if kwargs.get("slice", False):
+                for idx in range(0, len(train), BATCH_SIZE):
+                    batch = train[idx:idx+BATCH_SIZE]
+                    resid += batch.target-self.forward(batch.features)
+            else:
+                for batch in DataLoader(dataset=train, batch_size=BATCH_SIZE, collate_fn=lambda x:x, shuffle=False):
+                    resid += batch.target-self.forward(batch.features)
             return resid.mean().cpu()
-
 
 
 def get_time_cost(func: Callable):
@@ -74,7 +74,9 @@ def get_time_cost(func: Callable):
             max_t = max(end-start, max_t)
             min_t = min(end-start, min_t)
         ave_t = (t_total-max_t - min_t)/(t-2)
-        print(f"function: {func.__name__},  ave time cost: {ave_t:.2f}s")
+        kwargs.pop('data')
+        kwargs.pop("load_only")
+        print(f"function: {func.__name__},  ave time cost: {ave_t:.2f}s,  args={kwargs}")
         return val, (end-start)
     return _wrapper
 
@@ -86,9 +88,9 @@ def get_test_data(r: int, c: int) -> Tuple[np.ndarray]:
 
 
 @get_time_cost
-def dataloader_test(data: Tuple[np.ndarray], cuda=True, load_only=True):
+def dataloader_test(data: Tuple[np.ndarray], load_only=True):
     train = NumericDataSet(data[0], data[1])
-    train_loader = DataLoader(dataset=train, batch_size=BATCH_SIZE,shuffle=True)
+    train_loader = DataLoader(dataset=train, batch_size=BATCH_SIZE,shuffle=False)
     if (load_only): return
 
     #training process (Linear Regression on GPU) to test Iteration speed
@@ -98,25 +100,31 @@ def dataloader_test(data: Tuple[np.ndarray], cuda=True, load_only=True):
 
 
 @get_time_cost
-def tensorclass_test(data: Tuple[np.array], cuda=True, load_only=True):
-    train = NumericTensorClass.from_data(features=data[0], target=data[1])
+def tensorclass_test(data: Tuple[np.array], load_only=True, **kwargs):
+    ## loading 方式一： 使用from_data直接构造Dataset
+    # train = NumericTensorClass.from_data(features=data[0], target=data[1])
+    ## loading 方式二： 使用TensorDict 内存pre-alloc，随后将数据填入。
+    td = TensorDict({}, [len(data[0])], device=0)
+    td["features"] = data[0]; td["target"] = data[1]
+    train = NumericTensorClass.from_tensordict(td)
     if (load_only): return True
 
-    linear_model = LinearRegression(train.features.shape[1],train.target.shape[1]).cuda()
-
     # training process
-    return linear_model.train(train)
+    linear_model = LinearRegression(train.features.shape[1],train.target.shape[1]).cuda()
+    return linear_model.train(train, **kwargs)
 
 
 def main():
-    for size in [(5000, 10000), (10000, 50000)]:
+    for size in [(15000, 5000), (30000, 10000)]:
         print(f"------> tensor size: {size}")
         for load in (True, False):
             print("Loading Time:" if load else "Loading + Traing(Iteration) Time:")
             data = get_test_data(size[0], size[1])
-            dataloader_test(data=data, cuda=True, load_only=load)
+            dataloader_test(data=data, load_only=load)
             data = get_test_data(size[0], size[1])
-            tensorclass_test(data=data, cuda=True, load_only=load)
+            tensorclass_test(data=data, load_only=load, slice=False)
+            data = get_test_data(size[0], size[1])
+            tensorclass_test(data=data, load_only=load, slice=True)
     return
 
 

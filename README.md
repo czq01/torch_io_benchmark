@@ -55,6 +55,12 @@ python ./torch_test.py
 
 ![pic/result.png loading failed](./pic/result.png)
 
-依据结果可以看出，在数据loading并进入GPU这一过程中， tensordict的性能显著优于普通dataloader。当数据量庞大时尤为明显。而在整体性能，也即考虑training时Iteration的过程，从tensorclass嵌套DataLoader取batch数据的速度在数据量大时则显著慢于普通dataloader。
+依据结果可以看出：
 
-然而tensorclass存在另一种更优秀的自带的batch切片方式，即Slice切片。运用该方式在Training Iteration的过程中会得到明显的速度提升，使得其运行时间显著低于DataLoader。
+1. 在数据loading并进入GPU这一过程中， tensordict的性能与普通dataloader性能整体相差不大。
+2. 考虑training时Iteration的过程，从tensorclass嵌套DataLoader取batch数据的速度在数据量大时则显著慢于普通dataloader， 而若是直接使用tensorclass的切片操作绕过Dataloader，则会有一个非常明显的性能提升。也即性能排序： tensorclass切片>普通Dataloader>tensorclass套Dataloader。
+
+除此之外，在代码编写过程中依据时间花费分析的思路进行了如下对比测试：
+1. 将loading的目标设备设置为CPU，会发现二者在加载数据过程的时间花费均降低至为0.00s，即二者加载数据的主要时间瓶颈均发生在由CPU向GPU复制的过程，而此过程并不存在提升空间。
+2. 测试了tensorclass的两种数据load方式(参见tensorclass_test中的注释部分)：tensordict预分配内存和现场直接创建obj的方式。经测试在无nested data的情况下速度相同，因为不存在多次内存分配的调用开销。但若是存在大量多次load Tensor某一维度截面数据的情况可能会有不同。
+3. 根据上述分析，loading过程的另一处瓶颈可能存在于disk IO read的过程。但由于tensorclass文档中所述磁盘内存映射的`class MemoryMapperTensor`在当前版本的package中尚未实现无法调用，故而未进行测试。
