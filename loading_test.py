@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import time
 import torch.nn as nn
-from torch_test import  NumericTensorClass, NumericDataSet, get_time_cost
+from iter_test import  NumericTensorClass, NumericDataSet, get_time_cost
 import gc
 
 

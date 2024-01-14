@@ -1,11 +1,11 @@
-import pre_alloc_test
-import torch_test
+import loading_test
+import iter_test
 
 
 
 def main():
-    torch_test.iterating_test()
-    pre_alloc_test.pre_alloc_loading_test()
+    iter_test.iterating_test()
+    loading_test.pre_alloc_loading_test()
 
 
 if __name__ == "__main__":

@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.2.0] - 2024-01-14
+
+### Added
+
+* 新增pre_alloc_test,测试tensorclass内存预分配对数据loading过程性能的影响。
+* 新增main.py 将两项测试整合，并提供入口
+* 添加loading部分的测试结论，修改了readme
+
+### Changed
+
+* 修改实验组结构，使用testlist[(func, *args)]的结构进行测试
+* 修改项目结构名称， 将torch_test中main函数修改为iteration_test
+* 将torch_test文件改名为iter_test
+* 将pre_alloc_teset文件改名为loading_test
+
+## [1.1.2] - 2024-01-14
+
+### Fixed
+
+* 修复测试的扰动项，在每项测试完成后清除所有数据，并清空GPU
+* 更正最新结论，即slicing不会带来遍历性能提升
+
 ## [1.1.1] - 2024-01-12
 
 ### Added
