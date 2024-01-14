@@ -1,3 +1,5 @@
+import gc
+import math
 from typing import Callable, Tuple
 from torch.utils.data import DataLoader, Dataset
 from tensordict import TensorDict, tensorclass
@@ -12,8 +14,8 @@ class NumericDataSet(Dataset):
 
     def __init__(self, features, target):
         self.len = len(features)
-        self.features = torch.from_numpy(features).cuda()
-        self.target = torch.from_numpy(target).cuda()
+        self.features = features
+        self.target = target
 
     def __getitem__(self, index):
         return self.features[index], self.target[index]
@@ -53,8 +55,9 @@ class LinearRegression(torch.nn.Module):
             return resid.mean().cpu()
         elif isinstance(train, NumericTensorClass):
             if kwargs.get("slice", False):
-                for idx in range(0, len(train), BATCH_SIZE):
-                    batch = train[idx:idx+BATCH_SIZE]
+                _step = math.ceil(len(train)/20)
+                for idx in range(BATCH_SIZE):
+                    batch = train[idx::_step]
                     resid += batch.target-self.forward(batch.features)
             else:
                 for batch in DataLoader(dataset=train, batch_size=BATCH_SIZE, collate_fn=lambda x:x, shuffle=False):
@@ -74,8 +77,9 @@ def get_time_cost(func: Callable):
             max_t = max(end-start, max_t)
             min_t = min(end-start, min_t)
         ave_t = (t_total-max_t - min_t)/(t-2)
-        kwargs.pop('data')
-        kwargs.pop("load_only")
+        try:
+            kwargs.pop('data')
+        except: pass
         print(f"function: {func.__name__},  ave time cost: {ave_t:.2f}s,  args={kwargs}")
         return val, (end-start)
     return _wrapper
@@ -88,8 +92,9 @@ def get_test_data(r: int, c: int) -> Tuple[np.ndarray]:
 
 
 @get_time_cost
-def dataloader_test(data: Tuple[np.ndarray], load_only=True):
-    train = NumericDataSet(data[0], data[1])
+def dataloader_test(data: Tuple[np.ndarray], load_only=True, **kwargs):
+    train = NumericDataSet(torch.from_numpy(data[0]).cuda(),
+                           torch.from_numpy(data[1]).cuda())
     train_loader = DataLoader(dataset=train, batch_size=BATCH_SIZE,shuffle=False)
     if (load_only): return
 
@@ -98,15 +103,14 @@ def dataloader_test(data: Tuple[np.ndarray], load_only=True):
     return linear_model.train(train_loader)
 
 
-
 @get_time_cost
 def tensorclass_test(data: Tuple[np.array], load_only=True, **kwargs):
     ## loading 方式一： 使用from_data直接构造Dataset
-    # train = NumericTensorClass.from_data(features=data[0], target=data[1])
+    train = NumericTensorClass.from_data(features=data[0], target=data[1])
     ## loading 方式二： 使用TensorDict 内存pre-alloc，随后将数据填入。
-    td = TensorDict({}, [len(data[0])], device=0)
-    td["features"] = data[0]; td["target"] = data[1]
-    train = NumericTensorClass.from_tensordict(td)
+    # td = TensorDict({}, [len(data[0])], device=0)
+    # td["features"] = data[0]; td["target"] = data[1]
+    # train = NumericTensorClass.from_tensordict(td)
     if (load_only): return True
 
     # training process
@@ -114,22 +118,30 @@ def tensorclass_test(data: Tuple[np.array], load_only=True, **kwargs):
     return linear_model.train(train, **kwargs)
 
 
-def main():
-    for size in [(15000, 5000), (30000, 10000)]:
-        print(f"------> tensor size: {size}")
-        for load in (True, False):
-            print("Loading Time:" if load else "Loading + Traing(Iteration) Time:")
-            data = get_test_data(size[0], size[1])
-            dataloader_test(data=data, load_only=load)
-            data = get_test_data(size[0], size[1])
-            tensorclass_test(data=data, load_only=load, slice=False)
-            data = get_test_data(size[0], size[1])
-            tensorclass_test(data=data, load_only=load, slice=True)
-    return
+def iterating_test():
+    print("-"*50)
+    print("Iterating Test: ")
+    testlist = [
+        (dataloader_test, {"data": (), "load_only": True}),
+        (tensorclass_test, {"data": (), "load_only": True}),
+        (dataloader_test, {"data": (), }),
+        (tensorclass_test, {"data": (), }),
+        (tensorclass_test, {"data": (), "slice": True}),
+    ]
 
+    for size in [(15000, 5000), (30000, 10000)]:
+        print(f"------> size: {size}")
+        for test in testlist:
+            data = get_test_data(size[0], size[1])
+            test[1]["data"] = data
+            test[0](**test[1])
+            del data
+            gc.collect()
+            torch.cuda.empty_cache()
+    return
 
 if __name__ == "__main__":
     torch.cuda.set_device(0)
-    main()
+    iterating_test()
 
 
